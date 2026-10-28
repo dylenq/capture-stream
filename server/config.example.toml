@@ -1,0 +1,32 @@
+# capture-streamd configuration. install.sh copies this to ~/.config/capture-stream/config.toml.
+
+# Address and TCP port the Mac app connects to.
+listen = "0.0.0.0"
+control_port = 47100
+
+# V4L2 device of the capture card (`v4l2-ctl --list-devices`).
+video_device = "/dev/video0"
+
+# PulseAudio/PipeWire source carrying the card's audio (`pactl list short sources`),
+# or "default" for the default input.
+audio_source = "default"
+
+# Mode used when the client doesn't ask for one.
+default_mode = "720p60"
+
+# Optional shell commands run before streaming starts and after it stops,
+# e.g. to free the card from another program that uses it.
+pre_start = ""
+post_stop = ""
+
+# Capture modes offered to the client. The card must support MJPEG at these sizes/rates
+# (`v4l2-ctl -d /dev/video0 --list-formats-ext`).
+[modes.720p60]
+width = 1280
+height = 720
+fps = 60
+
+[modes.1080p30]
+width = 1920
+height = 1080
+fps = 30

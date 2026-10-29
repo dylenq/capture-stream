@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>capture-stream — Low-latency HDMI capture card streaming to your Mac</title>
+<meta name="description" content="Stream a PS4, PS5, Nintendo Switch, Xbox or any HDMI source from a USB capture card on Linux to a native Mac app with ~12 ms video delay. MJPEG passthrough, no re-encoding. Free and open source.">
+<meta name="keywords" content="capture card streaming, stream PS4 to Mac, stream PS5 to MacBook, HDMI capture card Mac, low latency game streaming, Moonlight alternative capture card, remote play, MJPEG, UVC capture card Linux">
+<link rel="canonical" href="https://dylenq.github.io/capture-stream/">
+<meta name="theme-color" content="#0d1117">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="capture-stream">
+<meta property="og:title" content="capture-stream — Low-latency HDMI capture card streaming to your Mac">
+<meta property="og:description" content="Play your console from another room: a USB capture card on a Linux box streams to a native Mac app with ~12 ms video delay. Free and open source.">
+<meta property="og:url" content="https://dylenq.github.io/capture-stream/">
+<meta property="og:image" content="https://dylenq.github.io/capture-stream/images/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="capture-stream: console to capture card to Linux server to Mac app">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="capture-stream — Low-latency HDMI capture card streaming to your Mac">
+<meta name="twitter:description" content="A USB capture card on Linux streams to a native Mac app with ~12 ms video delay. Open source.">
+<meta name="twitter:image" content="https://dylenq.github.io/capture-stream/images/social-preview.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "capture-stream",
+  "alternateName": "Capture Stream",
+  "description": "Low-latency streaming from a USB HDMI capture card on Linux to a native macOS app, using MJPEG passthrough and hardware JPEG decoding.",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "macOS 14+, Linux",
+  "softwareVersion": "0.2.0",
+  "license": "https://opensource.org/licenses/MIT",
+  "url": "https://dylenq.github.io/capture-stream/",
+  "downloadUrl": "https://github.com/dylenq/capture-stream/releases/latest",
+  "codeRepository": "https://github.com/dylenq/capture-stream",
+  "screenshot": "https://dylenq.github.io/capture-stream/images/app-streaming.png",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Person", "name": "dylenq", "url": "https://github.com/dylenq" }
+}
+</script>
+
+<style>
+  :root {
+    --bg: #ffffff; --bg-alt: #f6f8fa; --text: #1f2328; --muted: #57606a; --border: #d0d7de;
+    --accent: #0969da; --accent-text: #ffffff; --code-bg: #f6f8fa; --good: #1a7f37;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117; --bg-alt: #161b22; --text: #e6edf3; --muted: #8b949e; --border: #30363d;
+      --accent: #2f81f7; --accent-text: #ffffff; --code-bg: #161b22; --good: #3fb950;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+  header.hero { padding: 72px 0 40px; text-align: center; }
+  .hero h1 { font-size: clamp(34px, 6vw, 56px); line-height: 1.1; margin: 0 0 16px; letter-spacing: -0.02em; }
+  .hero p.lead { font-size: clamp(18px, 2.4vw, 22px); color: var(--muted); max-width: 760px; margin: 0 auto 28px; }
+  .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn { display: inline-block; padding: 12px 22px; border-radius: 10px; font-weight: 600; text-decoration: none;
+         border: 1px solid var(--border); color: var(--text); background: var(--bg-alt); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .small { font-size: 14px; color: var(--muted); margin-top: 12px; }
+  figure { margin: 0; }
+  img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .shot { margin: 8px auto 0; }
+  section { padding: 56px 0; border-top: 1px solid var(--border); }
+  section.alt { background: var(--bg-alt); }
+  h2 { font-size: 30px; margin: 0 0 20px; letter-spacing: -0.01em; }
+  h3 { font-size: 19px; margin: 0 0 6px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; }
+  .card { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card p { margin: 0; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 16px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .good { color: var(--good); font-weight: 600; }
+  pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+        overflow-x: auto; font-size: 14px; line-height: 1.5; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  ol li { margin-bottom: 10px; }
+  details { border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; background: var(--bg); }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { margin: 10px 0 0; color: var(--muted); }
+  footer { padding: 32px 0 48px; color: var(--muted); font-size: 14px; text-align: center; border-top: 1px solid var(--border); }
+  .table-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<header class="hero wrap">
+  <h1>Play your console from another room, with almost no delay</h1>
+  <p class="lead">capture-stream sends the picture and sound from a USB HDMI capture card on a Linux box to a native Mac app,
+    with about <strong>12 ms</strong> of video delay. PS4, PS5, Nintendo Switch, Xbox or any HDMI source.</p>
+  <div class="buttons">
+    <a class="btn primary" href="https://github.com/dylenq/capture-stream/releases/latest">Download for Mac</a>
+    <a class="btn" href="https://github.com/dylenq/capture-stream">View on GitHub</a>
+  </div>
+  <p class="small">Free and open source (MIT) · macOS 14+ on Apple Silicon · Linux server</p>
+  <figure class="shot">
+    <img src="images/app-streaming.png" width="1400" height="836"
+         alt="The Capture Stream Mac app streaming a 1080p60 test pattern with its stats overlay showing 60 fps and no dropped frames">
+  </figure>
+</header>
+
+<section class="alt">
+  <div class="wrap">
+    <h2>How it works</h2>
+    <figure>
+      <img src="images/diagram.svg" width="1200" height="300"
+           alt="Diagram: console to HDMI to USB capture card to Linux server running capture-streamd to Wi-Fi or LAN to the Capture Stream app on a Mac">
+    </figure>
+    <p>Game-streaming tools like Sunshine and Moonlight expect a PC running the game. With a capture card they have to
+      decode the card's video, show it on a screen, grab that screen and encode it again, adding delay at every step.
+      Most USB capture cards already send compressed MJPEG frames, so capture-stream forwards them <strong>unchanged</strong>
+      and decodes them once, on the Mac, with Apple's hardware JPEG decoder. Your controller stays paired to the console.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Features</h2>
+    <div class="grid">
+      <div class="card"><h3>No re-encoding</h3><p>The card's MJPEG frames go straight through. The server uses about 30% of one core, even on an old i5.</p></div>
+      <div class="card"><h3>Shown instantly</h3><p>No playback clock and no frame queue: each frame appears the moment it's decoded, so delay can't build up.</p></div>
+      <div class="card"><h3>Never half a frame</h3><p>A frame with a lost packet is dropped instead of being shown broken.</p></div>
+      <div class="card"><h3>Sound in sync</h3><p>Raw PCM with a ~20 ms buffer that skips ahead if it ever holds more than 60 ms.</p></div>
+      <div class="card"><h3>720p60, 1080p30, 1080p60</h3><p>Pick a mode per session, or define your own in the server config.</p></div>
+      <div class="card"><h3>Live stats</h3><p>Press S for fps, bandwidth, dropped frames and video/audio delay.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <h2>How fast is it?</h2>
+    <p>Measured on a 2017 Intel i5 server with a MacroSilicon MS2109 USB capture card, streaming to an Apple Silicon MacBook over 5 GHz Wi-Fi.</p>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th></th><th>720p60</th><th>1080p60</th></tr></thead>
+      <tbody>
+        <tr><td>Video delay (server → decoded on the Mac)</td><td class="num">~12 ms</td><td class="num">9–15 ms</td></tr>
+        <tr><td>Audio delay (server → speakers)</td><td class="num">~35–50 ms</td><td class="num">45–62 ms</td></tr>
+        <tr><td>Dropped frames</td><td class="num good">0</td><td class="num good">0</td></tr>
+        <tr><td>Bandwidth</td><td class="num">35–55 Mbps</td><td class="num">70–145 Mbps</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small">Excludes the capture card's own delay (typically 1–3 frames) and your display.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>Get started</h2>
+    <ol>
+      <li><strong>Server:</strong> on the Linux machine with the capture card (needs Python 3.11+ and ffmpeg):
+        <pre><code>git clone https://github.com/dylenq/capture-stream
+cd capture-stream/server &amp;&amp; ./install.sh</code></pre>
+        Then set your card's device and audio input in <code>~/.config/capture-stream/config.toml</code>.</li>
+      <li><strong>Mac:</strong> <a href="https://github.com/dylenq/capture-stream/releases/latest">download the app</a>, move it to Applications,
+        and on first launch allow it in <em>System Settings → Privacy &amp; Security → Open Anyway</em>.</li>
+      <li><strong>Connect:</strong> enter the server's name or IP, pick a mode, press Connect.</li>
+    </ol>
+    <figure>
+      <img src="images/app-connect.png" width="1400" height="836" loading="lazy"
+           alt="The Capture Stream connect window with a server field, a mode picker and a Connect button">
+    </figure>
+    <p>No capture card yet? Run <code>python3 server/capture-streamd.py --demo</code> to stream a test pattern, then connect to it.</p>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <h2>FAQ</h2>
+    <details><summary>Can I stream my PS4 or PS5 to a MacBook with a capture card?</summary>
+      <p>Yes. Connect the console's HDMI to a USB capture card on a Linux machine, run capture-streamd and connect with the Mac app.
+        Turn HDCP off on the console first (PS4: Settings → System → Enable HDCP), or the card captures nothing.</p></details>
+    <details><summary>Is this a Moonlight or Sunshine alternative?</summary>
+      <p>For capture cards, yes: it sends the card's frames straight to the Mac instead of showing and re-encoding them.
+        For games running on a PC, use Sunshine and Moonlight.</p></details>
+    <details><summary>Which capture cards work?</summary>
+      <p>Any UVC (driver-free) USB capture card that outputs MJPEG, which covers most inexpensive HDMI-to-USB cards. USB 2.0 cards
+        like the MS2109 do a true 60 fps at 720p and about 57 fps at 1080p.</p></details>
+    <details><summary>Does it work on Windows or iOS?</summary>
+      <p>Not yet. The server runs on Linux and the client is macOS on Apple Silicon. The protocol is small and documented, so other clients are possible.</p></details>
+    <details><summary>Can I use it over the internet?</summary>
+      <p>It's designed for a home network: it needs 35–145 Mbps and has no authentication, so don't expose it to the internet.</p></details>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    capture-stream is free and open source under the <a href="https://github.com/dylenq/capture-stream/blob/main/LICENSE">MIT licence</a> ·
+    <a href="https://github.com/dylenq/capture-stream">GitHub</a> ·
+    <a href="https://github.com/dylenq/capture-stream/issues">Report an issue</a><br>
+    Not affiliated with Sony, Nintendo, Microsoft or Apple; product names describe compatibility only.
+  </div>
+</footer>
+
+</body>
+</html>

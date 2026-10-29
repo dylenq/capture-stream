@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#162032"/>
+    </linearGradient>
+  </defs>
+  <rect width="1280" height="640" fill="url(#bg)"/>
+  <text x="80" y="170" font-size="76" font-weight="800" fill="#ffffff">capture-stream</text>
+  <text x="80" y="240" font-size="36" fill="#c9d1d9">Low-latency HDMI capture card streaming</text>
+  <text x="80" y="290" font-size="36" fill="#c9d1d9">from a Linux box to your Mac</text>
+
+  <g text-anchor="middle" font-size="24" font-weight="700">
+    <rect x="80" y="370" width="230" height="110" rx="14" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+    <text x="195" y="420" fill="#ffffff">Console</text>
+    <text x="195" y="452" font-size="18" font-weight="400" fill="#8b949e">any HDMI source</text>
+    <rect x="390" y="370" width="230" height="110" rx="14" fill="#161b22" stroke="#30363d" stroke-width="2"/>
+    <text x="505" y="420" fill="#ffffff">Capture card</text>
+    <text x="505" y="452" font-size="18" font-weight="400" fill="#8b949e">MJPEG over USB</text>
+    <rect x="700" y="370" width="230" height="110" rx="14" fill="#0c2d6b" stroke="#388bfd" stroke-width="2"/>
+    <text x="815" y="420" fill="#ffffff">Linux server</text>
+    <text x="815" y="452" font-size="18" font-weight="400" fill="#a5d6ff">no re-encoding</text>
+    <rect x="1010" y="370" width="200" height="110" rx="14" fill="#0f3d1a" stroke="#3fb950" stroke-width="2"/>
+    <text x="1110" y="420" fill="#ffffff">Mac app</text>
+    <text x="1110" y="452" font-size="18" font-weight="400" fill="#aff5b4">~12 ms video</text>
+    <line x1="312" y1="425" x2="378" y2="425" stroke="#8b949e" stroke-width="3"/>
+    <polygon points="386,425 374,418 374,432" fill="#8b949e"/>
+    <line x1="622" y1="425" x2="688" y2="425" stroke="#8b949e" stroke-width="3"/>
+    <polygon points="696,425 684,418 684,432" fill="#8b949e"/>
+    <line x1="932" y1="425" x2="998" y2="425" stroke="#8b949e" stroke-width="3"/>
+    <polygon points="1006,425 994,418 994,432" fill="#8b949e"/>
+  </g>
+  <text x="80" y="570" font-size="24" fill="#8b949e">Open source · MIT · github.com/dylenq/capture-stream</text>
+</svg>

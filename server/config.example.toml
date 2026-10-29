@@ -4,6 +4,10 @@
 listen = "0.0.0.0"
 control_port = 47100
 
+# "card" streams the capture card below; "demo" streams a generated test pattern and tone
+# (same as running with --demo), handy for trying the app without a card.
+source = "card"
+
 # V4L2 device of the capture card (`v4l2-ctl --list-devices`).
 video_device = "/dev/video0"
 

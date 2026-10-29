@@ -29,14 +29,15 @@ struct CaptureStreamApp: App {
 }
 
 extension CaptureStreamApp {
-    /// `--connect <host> [--mode <mode>]` connects on launch; `--log-stats` prints the stats
-    /// line to stdout every second.
+    /// `--connect <host> [--mode <mode>]` connects on launch; `--show-stats` turns the stats
+    /// overlay on; `--log-stats` prints the stats line to stdout every second.
     private func applyLaunchArguments() {
         let args = CommandLine.arguments
         func value(after flag: String) -> String? {
             args.firstIndex(of: flag).flatMap { args.indices.contains($0 + 1) ? args[$0 + 1] : nil }
         }
         client.logStats = args.contains("--log-stats")
+        if args.contains("--show-stats") { client.showStats = true }
         if let host = value(after: "--connect") {
             let mode = value(after: "--mode") ?? UserDefaults.standard.string(forKey: "mode") ?? "720p60"
             UserDefaults.standard.set(host, forKey: "host")

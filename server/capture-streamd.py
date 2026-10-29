@@ -41,6 +41,7 @@ EOI = b"\xff\xd9"
 DEFAULT_CONFIG = {
     "listen": "0.0.0.0",
     "control_port": 47100,
+    "source": "card",
     "video_device": "/dev/video0",
     "audio_source": "default",
     "default_mode": "720p60",
@@ -88,18 +89,31 @@ class Streamer:
         self.last_frame_time = 0.0
         self.started_at = time.monotonic()
 
-    def start(self):
+    def _inputs(self):
+        """ffmpeg input and video-codec arguments for the configured source."""
         m = self.mode
-        audio_r, audio_w = os.pipe()
-        cmd = [
-            "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
-            "-fflags", "nobuffer", "-thread_queue_size", "32",
-            "-f", "v4l2", "-input_format", "mjpeg",
-            "-video_size", f"{m['width']}x{m['height']}", "-framerate", str(m["fps"]),
+        size = f"{m['width']}x{m['height']}"
+        if self.config["source"] == "demo":
+            # Generated test pattern and tone, encoded to MJPEG like a capture card would send.
+            return [
+                "-re", "-f", "lavfi", "-i", f"testsrc2=size={size}:rate={m['fps']}",
+                "-re", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000",
+            ], ["-c:v", "mjpeg", "-q:v", "4", "-pix_fmt", "yuvj420p"]
+        return [
+            "-thread_queue_size", "32",
+            "-f", "v4l2", "-input_format", "mjpeg", "-video_size", size, "-framerate", str(m["fps"]),
             "-i", self.config["video_device"],
             "-thread_queue_size", "64", "-f", "pulse", "-fragment_size", str(AUDIO_CHUNK),
             "-i", self.config["audio_source"],
-            "-map", "0:v", "-c:v", "copy", "-flush_packets", "1", "-f", "mjpeg", "pipe:1",
+        ], ["-c:v", "copy"]
+
+    def start(self):
+        audio_r, audio_w = os.pipe()
+        inputs, video_codec = self._inputs()
+        cmd = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin", "-fflags", "nobuffer",
+            *inputs,
+            "-map", "0:v", *video_codec, "-flush_packets", "1", "-f", "mjpeg", "pipe:1",
             "-map", "1:a", "-c:a", "pcm_s16le", "-ar", "48000", "-ac", "2",
             "-flush_packets", "1", "-f", "s16le", f"pipe:{audio_w}",
         ]
@@ -306,9 +320,13 @@ async def send(writer, obj):
 async def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--config", default=os.path.expanduser("~/.config/capture-stream/config.toml"))
+    parser.add_argument("--demo", action="store_true",
+                        help="stream a generated test pattern and tone instead of a capture card")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     config = load_config(args.config)
+    if args.demo:
+        config["source"] = "demo"
     server = Server(config)
     tcp = await asyncio.start_server(server.handle, config["listen"], config["control_port"])
     log.info("listening on %s:%d", config["listen"], config["control_port"])

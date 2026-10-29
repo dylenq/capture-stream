@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import CoreMedia
+import ImageIO
 import VideoToolbox
 
 /// Reassembles JPEG frames from UDP packets, decodes them in hardware and shows each one
@@ -21,6 +22,8 @@ final class VideoPipeline {
     private var session: VTDecompressionSession?
     private var jpegFormat: CMVideoFormatDescription?
     private var size = (width: 0, height: 0)
+    private var hardwareFailures = 0
+    private var useSoftwareDecoder = false
 
     init(stats: StreamStats) {
         self.stats = stats
@@ -31,6 +34,8 @@ final class VideoPipeline {
     func reset(width: Int, height: Int) {
         partials.removeAll()
         lastShown = 0
+        hardwareFailures = 0
+        useSoftwareDecoder = false
         if (width, height) != size {
             if let session { VTDecompressionSessionInvalidate(session) }
             session = nil
@@ -86,18 +91,57 @@ final class VideoPipeline {
     }
 
     private func decodeAndShow(_ jpeg: Data, captureMicros: UInt64) {
+        if useSoftwareDecoder {
+            decodeInSoftware(jpeg, captureMicros: captureMicros)
+            return
+        }
         if session == nil, !makeSession() { return }
         guard let session, let jpegFormat, let sample = Self.sampleBuffer(jpeg, format: jpegFormat) else { return }
         VTDecompressionSessionDecodeFrame(session, sampleBuffer: sample, flags: [],
                                           infoFlagsOut: nil) { [weak self] status, _, image, _, _ in
             guard let self else { return }
             guard status == noErr, let image else {
-                self.stats.addDroppedFrames(1)
+                // The hardware decoder rejects some cards' JPEGs (e.g. some 4:2:2 encoders).
+                // After a few failures in a row, switch to ImageIO for the rest of the session.
+                hardwareFailures += 1
+                if hardwareFailures >= 3 { useSoftwareDecoder = true }
+                decodeInSoftware(jpeg, captureMicros: captureMicros)
                 return
             }
+            hardwareFailures = 0
             self.show(image)
             self.stats.frameShown(captureMicros: captureMicros)
         }
+    }
+
+    private func decodeInSoftware(_ jpeg: Data, captureMicros: UInt64) {
+        guard let image = Self.softwareDecode(jpeg) else {
+            stats.addDroppedFrames(1)
+            return
+        }
+        show(image)
+        stats.frameShown(captureMicros: captureMicros)
+    }
+
+    private static func softwareDecode(_ jpeg: Data) -> CVPixelBuffer? {
+        guard let source = CGImageSourceCreateWithData(jpeg as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }
+        let attrs: [CFString: Any] = [kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
+                                      kCVPixelBufferCGImageCompatibilityKey: true,
+                                      kCVPixelBufferCGBitmapContextCompatibilityKey: true]
+        var buffer: CVPixelBuffer?
+        CVPixelBufferCreate(nil, image.width, image.height, kCVPixelFormatType_32BGRA, attrs as CFDictionary, &buffer)
+        guard let buffer else { return nil }
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let context = CGContext(data: CVPixelBufferGetBaseAddress(buffer), width: image.width,
+                                      height: image.height, bitsPerComponent: 8,
+                                      bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
+                                          | CGBitmapInfo.byteOrder32Little.rawValue) else { return nil }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        return buffer
     }
 
     private func show(_ image: CVImageBuffer) {

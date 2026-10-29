@@ -36,8 +36,15 @@ Measured on a 2017 i5 server and an Apple Silicon MacBook over 5 GHz Wi-Fi, 720p
 
 These figures don't include the capture card's own delay (typically 1–3 frames) or the display.
 
-The trade-off is bandwidth: MJPEG needs roughly **35–55 Mbps at 720p60** and 45–60 Mbps at 1080p30.
-A wired server and a good 5 GHz connection on the Mac are recommended.
+The trade-off is bandwidth. MJPEG is compressed frame by frame, so the rate depends on what's on screen:
+
+| mode | measured | notes |
+|---|---|---|
+| 720p60 | 35–55 Mbps | the smoothest choice on most USB 2.0 cards |
+| 1080p30 | 45–60 Mbps | sharper, half the motion smoothness |
+| 1080p60 | 70–145 Mbps (~100 average) | sharpest; USB 2.0 cards may deliver a bit under 60 fps |
+
+A wired server and a good 5 GHz connection on the Mac are recommended, especially for 1080p60.
 
 ## Requirements
 
@@ -73,7 +80,7 @@ Logs: `journalctl --user -u capture-streamd -f`
 | `audio_source` | `default` | PulseAudio/PipeWire source name |
 | `default_mode` | `720p60` | mode used if the app doesn't pick one |
 | `pre_start`, `post_stop` | empty | shell commands run before streaming starts / after it stops, e.g. to free the card from another program |
-| `[modes.NAME]` | `720p60`, `1080p30` | `width`, `height`, `fps` offered to the app |
+| `[modes.NAME]` | `720p60`, `1080p30`, `1080p60` | `width`, `height`, `fps` offered to the app |
 
 ## Client
 
@@ -102,9 +109,9 @@ The app listens on UDP ports 47101 (video) and 47102 (audio).
 - **Black screen / "no frames from the capture card"**: is the source on? Consoles with HDCP enabled
   (e.g. PS4: *Settings → System → Enable HDCP*) send nothing a capture card can record. Cheap cards
   also sometimes freeze after a mode change; unplug and replug the card's USB cable.
-- **1080p60 isn't offered**: many USB 2.0 cards (MacroSilicon MS2109 and similar) advertise 1080p60
-  but deliver ~57 fps there, or only 10 fps uncompressed. 720p60 is usually the smoothest true-60 mode.
-  `lsusb -t` showing `480M` means USB 2.0.
+- **1080p60 runs below 60 fps or drops frames**: many USB 2.0 cards (MacroSilicon MS2109 and similar)
+  deliver ~57 fps at 1080p60, and it needs about twice the bandwidth of 1080p30. 720p60 is usually the
+  smoothest true-60 mode. `lsusb -t` showing `480M` means USB 2.0.
 - **Dropped frames on Wi-Fi**: the stats overlay shows them. Move closer to the access point, use
   5 GHz, or pick a lower mode.
 - **Check a server without the Mac app**: `python3 tools/probe.py <server>` connects, receives for 10 s

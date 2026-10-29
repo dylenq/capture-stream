@@ -49,6 +49,7 @@ DEFAULT_CONFIG = {
     "modes": {
         "720p60": {"width": 1280, "height": 720, "fps": 60},
         "1080p30": {"width": 1920, "height": 1080, "fps": 30},
+        "1080p60": {"width": 1920, "height": 1080, "fps": 60},
     },
 }
 

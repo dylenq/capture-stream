@@ -15,7 +15,7 @@ final class StreamClient: ObservableObject {
     @Published private(set) var state: State = .idle
     @Published private(set) var warning: String?
     @Published private(set) var snapshot = StreamStats.Snapshot()
-    @Published private(set) var modes = ["720p60", "1080p30"]
+    @Published private(set) var modes = ["720p60", "1080p30", "1080p60"]
     @Published var showStats = false
     var logStats = false
 

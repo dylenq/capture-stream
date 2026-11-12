@@ -96,7 +96,9 @@ struct StatsOverlay: View {
     }
 }
 
-/// Hosts the AVSampleBufferDisplayLayer that shows decoded frames.
+/// Hosts the AVSampleBufferDisplayLayer that shows decoded frames. The cursor hides itself
+/// after a few seconds without mouse movement (like a video player or game) and comes back
+/// on the next move.
 struct VideoView: NSViewRepresentable {
     let layer: CALayer
 
@@ -113,6 +115,10 @@ struct VideoView: NSViewRepresentable {
 
     final class LayerHostView: NSView {
         var hosted: CALayer?
+        private static let idleHideDelay: TimeInterval = 2.5
+        private var idleHideItem: DispatchWorkItem?
+        private var cursorHidden = false
+
         override func layout() {
             super.layout()
             CATransaction.begin()
@@ -120,6 +126,56 @@ struct VideoView: NSViewRepresentable {
             hosted?.frame = bounds
             CATransaction.commit()
         }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            window?.acceptsMouseMovedEvents = true
+            if window != nil {
+                noteCursorActivity()
+            } else {
+                revealCursor()
+            }
+        }
+
+        override func updateTrackingAreas() {
+            super.updateTrackingAreas()
+            for area in trackingAreas { removeTrackingArea(area) }
+            addTrackingArea(NSTrackingArea(rect: .zero,
+                                           options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+                                           owner: self, userInfo: nil))
+        }
+
+        override func mouseMoved(with event: NSEvent) { noteCursorActivity() }
+        override func mouseEntered(with event: NSEvent) { noteCursorActivity() }
+        override func mouseExited(with event: NSEvent) { revealCursor() }
+
+        /// The cursor moved, or the mouse is over the view: show it and restart the idle timer.
+        private func noteCursorActivity() {
+            idleHideItem?.cancel()
+            if cursorHidden {
+                NSCursor.unhide()
+                cursorHidden = false
+            }
+            let item = DispatchWorkItem { [weak self] in
+                guard let self, self.window?.isKeyWindow == true else { return }
+                NSCursor.hide()
+                self.cursorHidden = true
+            }
+            idleHideItem = item
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.idleHideDelay, execute: item)
+        }
+
+        /// Show the cursor and stop the hide timer (leaving the view, disconnecting, deinit).
+        private func revealCursor() {
+            idleHideItem?.cancel()
+            idleHideItem = nil
+            if cursorHidden {
+                NSCursor.unhide()
+                cursorHidden = false
+            }
+        }
+
+        deinit { revealCursor() }
     }
 }
 

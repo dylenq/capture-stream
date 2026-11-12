@@ -190,6 +190,9 @@ server has no authentication, so don't expose its ports to the internet.
   or pick a lower mode.
 - **The picture never appears but stats show data arriving**: some cards' JPEGs aren't accepted by the
   hardware decoder; the app switches to software decoding automatically after a few frames.
+- **The display sleeps mid-game, or the cursor never goes away**: while streaming, the app keeps the
+  Mac display awake (like a video player) and hides the cursor after ~2.5 s without mouse movement.
+  Move the mouse to bring the cursor back.
 
 ## How it works
 

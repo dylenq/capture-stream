@@ -29,6 +29,7 @@ final class StreamClient: ObservableObject {
     private var pingTimer: Timer?
     private var lineBuffer = Data()
     private var bestRTT = Double.infinity
+    private var displaySleepActivity: NSObjectProtocol?
 
     func connect(host: String, mode: String) {
         disconnect()
@@ -70,6 +71,7 @@ final class StreamClient: ObservableObject {
         control = nil
         pingTimer?.invalidate()
         pingTimer = nil
+        allowDisplaySleep()
         videoReceiver?.stop()
         audioReceiver?.stop()
         videoReceiver = nil
@@ -83,6 +85,22 @@ final class StreamClient: ObservableObject {
     private func fail(_ message: String) {
         disconnect()
         state = .failed(message)
+    }
+
+    /// Keep the Mac display awake while a stream is playing; without input the normal
+    /// idle display-sleep timer fires mid-game. Released in disconnect().
+    private func preventDisplaySleep() {
+        guard displaySleepActivity == nil else { return }
+        displaySleepActivity = ProcessInfo.processInfo.beginActivity(
+            options: .idleDisplaySleepDisabled,
+            reason: "Capture Stream is showing a live stream")
+    }
+
+    private func allowDisplaySleep() {
+        if let token = displaySleepActivity {
+            ProcessInfo.processInfo.endActivity(token)
+            displaySleepActivity = nil
+        }
     }
 
     private func controlStateChanged(_ newState: NWConnection.State, mode: String) {
@@ -152,6 +170,7 @@ final class StreamClient: ObservableObject {
             if let m = msg["modes"] as? [String] { modes = m }
             video.reset(width: msg["width"] as? Int ?? 1280, height: msg["height"] as? Int ?? 720)
             state = .streaming
+            preventDisplaySleep()
         case "pong":
             // Keep the offset from the fastest round trip: it has the least queueing error.
             guard let sent = msg["t"] as? Double, let server = msg["server_t"] as? Double else { return }

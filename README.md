@@ -32,6 +32,8 @@ Most USB capture cards already send compressed **MJPEG** frames. capture-stream 
 - **Audio in sync**: raw PCM with a ~20 ms jitter buffer that skips ahead if it ever holds more than
   60 ms, so sound never drifts behind the picture.
 - **720p60, 1080p30 and 1080p60** modes, plus your own in the config.
+- **MetalFX upscaling** (optional, `U`): frames are upscaled to the window's pixel size on the GPU,
+  sharper than the plain stretch on a Retina or 4K screen, for about 3–5 ms of extra video delay.
 - **Live stats** overlay (press `S`): fps, Mbps, dropped frames, video and audio delay.
 - **Native Mac app** (SwiftUI, Apple Silicon): full screen, remembers your server, no extra software.
 - **Always-on Linux service**: starts at boot as a systemd user service, streams only while the app is
@@ -85,11 +87,12 @@ A wired server and a good 5 GHz connection on the Mac are recommended, especiall
 | `⌘F` / double-click | full screen |
 | `Esc` | leave full screen |
 | `S` | stats overlay |
+| `U` | MetalFX upscaling on/off |
 | `⌘D` | disconnect |
 | `⌘K` | controller from the Mac on/off |
 
 Command-line options: `--connect <host> [--mode 720p60]` connects on launch, `--controller <PS4 IP>`
-turns the controller link on, `--show-stats` turns the overlay on, and `--log-stats` prints the stats line
+turns the controller link on, `--upscale` / `--no-upscale` turns MetalFX upscaling on or off, `--show-stats` turns the overlay on, and `--log-stats` prints the stats line
 every second.
 
 The app listens on UDP ports 47101 (video) and 47102 (audio).

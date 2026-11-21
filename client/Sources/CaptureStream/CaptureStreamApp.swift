@@ -6,6 +6,7 @@ struct CaptureStreamApp: App {
     @StateObject private var client = StreamClient()
     @StateObject private var link = ControllerLink()
     @AppStorage("controllerEnabled") private var controllerEnabled = false
+    @AppStorage("upscale") private var upscale = false
 
     var body: some Scene {
         Window("Capture Stream", id: "main") {
@@ -26,6 +27,8 @@ struct CaptureStreamApp: App {
                     .keyboardShortcut("s", modifiers: [])
                 Button("Toggle Full Screen") { toggleFullScreen() }
                     .keyboardShortcut("f")
+                Toggle("MetalFX Upscaling", isOn: $upscale)
+                    .keyboardShortcut("u", modifiers: [])
                 Divider()
                 Toggle("Use Controller on PS4", isOn: $controllerEnabled)
                     .keyboardShortcut("k")
@@ -36,7 +39,7 @@ struct CaptureStreamApp: App {
 
 extension CaptureStreamApp {
     /// `--connect <host> [--mode <mode>]` connects on launch; `--controller <PS4 IP>` turns the
-    /// controller link on; `--show-stats` turns the stats overlay on; `--log-stats` prints the
+    /// controller link on; `--upscale` / `--no-upscale` turns MetalFX upscaling on or off; `--show-stats` turns the stats overlay on; `--log-stats` prints the
     /// stats line to stdout every second.
     private func applyLaunchArguments() {
         let args = CommandLine.arguments
@@ -50,6 +53,8 @@ extension CaptureStreamApp {
         client.logStats = args.contains("--log-stats")
         link.logStatus = client.logStats
         if args.contains("--show-stats") { client.showStats = true }
+        if args.contains("--upscale") { upscale = true }
+        if args.contains("--no-upscale") { upscale = false }
         if let host = value(after: "--connect") {
             let mode = value(after: "--mode") ?? UserDefaults.standard.string(forKey: "mode") ?? "720p60"
             UserDefaults.standard.set(host, forKey: "host")

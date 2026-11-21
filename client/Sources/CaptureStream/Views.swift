@@ -8,6 +8,7 @@ struct ContentView: View {
     @AppStorage("mode") private var mode = "720p60"
     @AppStorage("consoleHost") private var consoleHost = ""
     @AppStorage("controllerEnabled") private var controllerEnabled = false
+    @AppStorage("upscale") private var upscale = false
     @State private var hovering = false
 
     var body: some View {
@@ -24,7 +25,11 @@ struct ContentView: View {
         .background(WebViewHost(view: link.bridge.webView).frame(width: 1, height: 1).opacity(0.01))
         .onChange(of: controllerEnabled) { updateController() }
         .onChange(of: consoleHost) { if controllerEnabled { updateController() } }
-        .onAppear(perform: updateController)
+        .onChange(of: upscale) { client.video.setUpscaling(upscale) }
+        .onAppear {
+            updateController()
+            client.video.setUpscaling(upscale)
+        }
     }
 
     private func updateController() {
@@ -36,12 +41,13 @@ struct ContentView: View {
     }
 
     private var streamView: some View {
-        VideoView(layer: client.video.displayLayer)
+        VideoView(pipeline: client.video)
             .ignoresSafeArea()
             .onTapGesture(count: 2) { toggleFullScreen() }
             .onHover { hovering = $0 }
             .overlay(alignment: .topLeading) {
-                if client.showStats { StatsOverlay(snapshot: client.snapshot, link: link).padding(10) }
+                if client.showStats { StatsOverlay(snapshot: client.snapshot, link: link,
+                                                     upscale: client.video.upscaleStatus).padding(10) }
             }
             .overlay(alignment: .topTrailing) {
                 if hovering {
@@ -75,6 +81,7 @@ struct ContentView: View {
                 Picker("Mode", selection: $mode) {
                     ForEach(client.modes, id: \.self) { Text($0) }
                 }
+                Toggle("MetalFX upscaling", isOn: $upscale)
                 Section {
                     Toggle("Use controller on PS4", isOn: $controllerEnabled)
                     TextField("PS4", text: $consoleHost, prompt: Text("PS4 IP running Control4Free"))
@@ -88,7 +95,7 @@ struct ContentView: View {
             if case .failed(let message) = client.state {
                 Text(message).foregroundStyle(.red).multilineTextAlignment(.center).frame(maxWidth: 360)
             }
-            Text("⌘F full screen · S stats · ⌘D disconnect")
+            Text("⌘F full screen · S stats · U upscaling · ⌘D disconnect")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(32)
@@ -134,6 +141,7 @@ private struct Banner: View {
 struct StatsOverlay: View {
     let snapshot: StreamStats.Snapshot
     @ObservedObject var link: ControllerLink
+    let upscale: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -141,6 +149,9 @@ struct StatsOverlay: View {
             Text("dropped \(snapshot.droppedLastSecond)/s, \(snapshot.droppedTotal) total")
             Text("video delay \(ms(snapshot.videoDelayMs))  audio delay \(ms(snapshot.audioDelayMs))")
             Text("audio gaps \(snapshot.audioGaps)  skips \(snapshot.audioSkips)")
+            if let upscale {
+                Text("MetalFX \(upscale)")
+            }
             if link.status != .off {
                 Text("controller \(link.padNumber.map { "\($0) " } ?? "")\(link.status.label)  rtt \(ms(link.rttMs))")
             }
@@ -156,18 +167,20 @@ struct StatsOverlay: View {
     }
 }
 
-/// Hosts the AVSampleBufferDisplayLayer that shows decoded frames. The cursor hides itself
+/// Hosts the AVSampleBufferDisplayLayer that shows decoded frames and tells the pipeline its
+/// pixel size, which is the MetalFX upscale target. The cursor hides itself
 /// after a few seconds without mouse movement (like a video player or game) and comes back
 /// on the next move.
 struct VideoView: NSViewRepresentable {
-    let layer: CALayer
+    let pipeline: VideoPipeline
 
     func makeNSView(context: Context) -> NSView {
         let view = LayerHostView()
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.black.cgColor
-        view.hosted = layer
-        view.layer?.addSublayer(layer)
+        view.hosted = pipeline.displayLayer
+        view.pipeline = pipeline
+        view.layer?.addSublayer(pipeline.displayLayer)
         return view
     }
 
@@ -175,6 +188,7 @@ struct VideoView: NSViewRepresentable {
 
     final class LayerHostView: NSView {
         var hosted: CALayer?
+        weak var pipeline: VideoPipeline?
         private static let idleHideDelay: TimeInterval = 2.5
         private var idleHideItem: DispatchWorkItem?
         private var cursorHidden = false
@@ -185,6 +199,17 @@ struct VideoView: NSViewRepresentable {
             CATransaction.setDisableActions(true)
             hosted?.frame = bounds
             CATransaction.commit()
+            reportPixelSize()
+        }
+
+        override func viewDidChangeBackingProperties() {
+            super.viewDidChangeBackingProperties()
+            reportPixelSize()
+        }
+
+        private func reportPixelSize() {
+            let pixels = convertToBacking(bounds).size
+            pipeline?.setViewPixelSize(width: Int(pixels.width), height: Int(pixels.height))
         }
 
         override func viewDidMoveToWindow() {

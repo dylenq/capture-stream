@@ -135,7 +135,8 @@ final class StreamClient: ObservableObject {
                          s.fps, s.mbps, s.droppedLastSecond, s.droppedTotal,
                          s.videoDelayMs.map { String(format: "%.0fms", $0) } ?? "-",
                          s.audioDelayMs.map { String(format: "%.0fms", $0) } ?? "-",
-                         s.audioGaps, s.audioSkips))
+                         s.audioGaps, s.audioSkips)
+                  + (video.upscaleStatus.map { "  metalfx \($0)" } ?? ""))
             fflush(stdout)
         }
     }

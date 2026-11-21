@@ -3,8 +3,11 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var client: StreamClient
+    @ObservedObject var link: ControllerLink
     @AppStorage("host") private var host = ""
     @AppStorage("mode") private var mode = "720p60"
+    @AppStorage("consoleHost") private var consoleHost = ""
+    @AppStorage("controllerEnabled") private var controllerEnabled = false
     @State private var hovering = false
 
     var body: some View {
@@ -17,6 +20,19 @@ struct ContentView: View {
         }
         .frame(minWidth: 480, minHeight: 270)
         .background(Color.black)
+        // The controller link's WebRTC runs in this web view; it has to stay in the window.
+        .background(WebViewHost(view: link.bridge.webView).frame(width: 1, height: 1).opacity(0.01))
+        .onChange(of: controllerEnabled) { updateController() }
+        .onChange(of: consoleHost) { if controllerEnabled { updateController() } }
+        .onAppear(perform: updateController)
+    }
+
+    private func updateController() {
+        if controllerEnabled && !consoleHost.trimmingCharacters(in: .whitespaces).isEmpty {
+            link.start(host: consoleHost)
+        } else {
+            link.stop()
+        }
     }
 
     private var streamView: some View {
@@ -25,7 +41,7 @@ struct ContentView: View {
             .onTapGesture(count: 2) { toggleFullScreen() }
             .onHover { hovering = $0 }
             .overlay(alignment: .topLeading) {
-                if client.showStats { StatsOverlay(snapshot: client.snapshot).padding(10) }
+                if client.showStats { StatsOverlay(snapshot: client.snapshot, link: link).padding(10) }
             }
             .overlay(alignment: .topTrailing) {
                 if hovering {
@@ -34,13 +50,18 @@ struct ContentView: View {
                 }
             }
             .overlay(alignment: .bottom) {
-                if let warning = client.warning {
-                    Text(warning)
-                        .padding(8)
-                        .background(.red.opacity(0.8), in: RoundedRectangle(cornerRadius: 6))
-                        .foregroundStyle(.white)
-                        .padding()
+                VStack(spacing: 8) {
+                    if let warning = client.warning {
+                        Banner(text: warning, color: .red)
+                    }
+                    // Only the states that need the player's attention mid-stream.
+                    if link.status == .choosingUser {
+                        Banner(text: "Choose your user on the PS4 to use the controller", color: .blue)
+                    } else if case .failed(let message) = link.status {
+                        Banner(text: "Controller: \(message)", color: .orange)
+                    }
                 }
+                .padding()
             }
             .onExitCommand { exitFullScreen() }
     }
@@ -54,8 +75,13 @@ struct ContentView: View {
                 Picker("Mode", selection: $mode) {
                     ForEach(client.modes, id: \.self) { Text($0) }
                 }
+                Section {
+                    Toggle("Use controller on PS4", isOn: $controllerEnabled)
+                    TextField("PS4", text: $consoleHost, prompt: Text("PS4 IP running Control4Free"))
+                    LabeledContent("Controller", value: controllerSummary)
+                }
             }
-            .frame(width: 320)
+            .frame(width: 360)
             Button(client.state == .connecting ? "Connecting…" : "Connect", action: connect)
                 .keyboardShortcut(.defaultAction)
                 .disabled(host.isEmpty || client.state == .connecting)
@@ -73,10 +99,41 @@ struct ContentView: View {
     private func connect() {
         client.connect(host: host, mode: mode)
     }
+
+    private var controllerSummary: String {
+        let device = link.input.name ?? "none connected"
+        return controllerEnabled ? "\(device) · \(link.status.label)" : device
+    }
+}
+
+extension ControllerLink.Status {
+    var label: String {
+        switch self {
+        case .off: return "off"
+        case .connecting: return "connecting…"
+        case .choosingUser: return "choose your user on the PS4"
+        case .ready(let user): return user.isEmpty ? "ready" : "ready (\(user))"
+        case .paused: return "paused"
+        case .failed(let message): return message
+        }
+    }
+}
+
+private struct Banner: View {
+    let text: String
+    let color: Color
+
+    var body: some View {
+        Text(text)
+            .padding(8)
+            .background(color.opacity(0.8), in: RoundedRectangle(cornerRadius: 6))
+            .foregroundStyle(.white)
+    }
 }
 
 struct StatsOverlay: View {
     let snapshot: StreamStats.Snapshot
+    @ObservedObject var link: ControllerLink
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -84,6 +141,9 @@ struct StatsOverlay: View {
             Text("dropped \(snapshot.droppedLastSecond)/s, \(snapshot.droppedTotal) total")
             Text("video delay \(ms(snapshot.videoDelayMs))  audio delay \(ms(snapshot.audioDelayMs))")
             Text("audio gaps \(snapshot.audioGaps)  skips \(snapshot.audioSkips)")
+            if link.status != .off {
+                Text("controller \(link.padNumber.map { "\($0) " } ?? "")\(link.status.label)  rtt \(ms(link.rttMs))")
+            }
         }
         .font(.system(size: 12, design: .monospaced))
         .foregroundStyle(.white)
@@ -177,6 +237,13 @@ struct VideoView: NSViewRepresentable {
 
         deinit { revealCursor() }
     }
+}
+
+/// Puts an AppKit view (the controller link's hidden web view) into the SwiftUI hierarchy.
+struct WebViewHost: NSViewRepresentable {
+    let view: NSView
+    func makeNSView(context: Context) -> NSView { view }
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
 func toggleFullScreen() {

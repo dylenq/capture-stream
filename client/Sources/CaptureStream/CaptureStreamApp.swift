@@ -18,6 +18,10 @@ struct CaptureStreamApp: App {
                 .onAppear(perform: applyLaunchArguments)
         }
         .defaultSize(width: 1280, height: 720)
+
+        Settings {
+            SettingsView()
+        }
         .commands {
             CommandMenu("Stream") {
                 Button("Disconnect") { client.disconnect() }
@@ -38,7 +42,8 @@ struct CaptureStreamApp: App {
 }
 
 extension CaptureStreamApp {
-    /// `--connect <host> [--mode <mode>]` connects on launch; `--controller <PS4 IP>` turns the
+    /// `--connect <host> [--mode <mode>]` connects on launch (`--mode custom` uses the custom
+    /// mode from Settings); `--controller <PS4 IP>` turns the
     /// controller link on; `--upscale` / `--no-upscale` turns MetalFX upscaling on or off; `--show-stats` turns the stats overlay on; `--log-stats` prints the
     /// stats line to stdout every second.
     private func applyLaunchArguments() {

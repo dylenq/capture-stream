@@ -106,8 +106,15 @@ final class StreamClient: ObservableObject {
     private func controlStateChanged(_ newState: NWConnection.State, mode: String) {
         switch newState {
         case .ready:
-            send(["type": "hello", "mode": mode,
-                  "video_port": Int(Wire.videoPort), "audio_port": Int(Wire.audioPort)])
+            var hello: [String: Any] = ["type": "hello", "mode": mode,
+                                        "video_port": Int(Wire.videoPort), "audio_port": Int(Wire.audioPort)]
+            if mode == "custom" {
+                let custom = VideoSettings.customMode()
+                hello["width"] = custom.width
+                hello["height"] = custom.height
+                hello["fps"] = custom.fps
+            }
+            send(hello)
             receive()
             pingTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.tick() }

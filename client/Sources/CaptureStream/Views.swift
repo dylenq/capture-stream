@@ -25,11 +25,7 @@ struct ContentView: View {
         .background(WebViewHost(view: link.bridge.webView).frame(width: 1, height: 1).opacity(0.01))
         .onChange(of: controllerEnabled) { updateController() }
         .onChange(of: consoleHost) { if controllerEnabled { updateController() } }
-        .onChange(of: upscale) { client.video.setUpscaling(upscale) }
-        .onAppear {
-            updateController()
-            client.video.setUpscaling(upscale)
-        }
+        .onAppear(perform: updateController)
     }
 
     private func updateController() {
@@ -79,7 +75,8 @@ struct ContentView: View {
                 TextField("Server", text: $host, prompt: Text("hostname or IP"))
                     .onSubmit(connect)
                 Picker("Mode", selection: $mode) {
-                    ForEach(client.modes, id: \.self) { Text($0) }
+                    ForEach(client.modes, id: \.self) { Text($0).tag($0) }
+                    Text(customModeLabel).tag("custom")
                 }
                 Toggle("MetalFX upscaling", isOn: $upscale)
                 Section {
@@ -95,8 +92,11 @@ struct ContentView: View {
             if case .failed(let message) = client.state {
                 Text(message).foregroundStyle(.red).multilineTextAlignment(.center).frame(maxWidth: 360)
             }
-            Text("⌘F full screen · S stats · U upscaling · ⌘D disconnect")
-                .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 4) {
+                Text("⌘F full screen · S stats · U upscaling · ⌘D disconnect ·")
+                SettingsLink { Text("Settings…") }.buttonStyle(.link)
+            }
+            .font(.caption).foregroundStyle(.secondary)
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -105,6 +105,11 @@ struct ContentView: View {
 
     private func connect() {
         client.connect(host: host, mode: mode)
+    }
+
+    private var customModeLabel: String {
+        let m = VideoSettings.customMode()
+        return "Custom (\(m.width)×\(m.height) @ \(m.fps))"
     }
 
     private var controllerSummary: String {

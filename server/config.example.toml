@@ -40,3 +40,6 @@ fps = 30
 width = 1920
 height = 1080
 fps = 60
+
+# The app can also ask for any other size and rate ("Custom" mode, set in its Settings window),
+# within 160-4096 pixels and 1-240 fps. The card must support MJPEG at it or ffmpeg will exit.

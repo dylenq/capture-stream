@@ -26,35 +26,50 @@ final class VideoPipeline {
     private var hardwareFailures = 0
     private var useSoftwareDecoder = false
 
-    /// MetalFX upscaling to the view's pixel size. Settings come from the main thread, frames
-    /// from the decoder's thread, so they're shared under a lock.
-    private struct UpscaleState {
-        var enabled = false
+    /// Picture settings and the view size come from the main thread, frames from the decoder's
+    /// thread, so they're shared under a lock.
+    private struct PictureState {
+        var settings = VideoSettings()
         var viewPixels = (width: 0, height: 0)
         var status: String?
+        var nextDue = 0.0
     }
-    private let upscaleState = OSAllocatedUnfairLock(initialState: UpscaleState())
+    private let state = OSAllocatedUnfairLock(initialState: PictureState())
     private let upscaler = Upscaler()
+    private var defaultsObserver: NSObjectProtocol?
 
     /// "1280×720 → 2560×1440" while upscaling, a reason when it's on but not upscaling, nil when off.
-    var upscaleStatus: String? { upscaleState.withLock { $0.status } }
+    var upscaleStatus: String? { state.withLock { $0.status } }
 
-    func setUpscaling(_ enabled: Bool) {
-        upscaleState.withLock {
-            $0.enabled = enabled
-            $0.status = enabled ? (upscaler == nil ? "not supported on this Mac" : "waiting for a frame") : nil
-        }
-    }
-
-    /// The video view's size in device pixels; the upscale target is the frame fitted inside it.
+    /// The video view's size in device pixels; the "Window size" upscale target fits the frame in it.
     func setViewPixelSize(width: Int, height: Int) {
-        upscaleState.withLock { $0.viewPixels = (width, height) }
+        state.withLock { $0.viewPixels = (width, height) }
     }
 
     init(stats: StreamStats) {
         self.stats = stats
         displayLayer.videoGravity = .resizeAspect
         displayLayer.backgroundColor = NSColor.black.cgColor
+        loadSettings()
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main) { [weak self] _ in
+                self?.loadSettings()
+            }
+    }
+
+    deinit {
+        if let defaultsObserver { NotificationCenter.default.removeObserver(defaultsObserver) }
+    }
+
+    private func loadSettings() {
+        let settings = VideoSettings.load()
+        state.withLock { s in
+            guard s.settings != settings else { return }
+            if settings.upscale != s.settings.upscale {
+                s.status = settings.upscale ? (upscaler == nil ? "not supported on this Mac" : "waiting for a frame") : nil
+            }
+            s.settings = settings
+        }
     }
 
     func reset(width: Int, height: Int) {
@@ -116,7 +131,20 @@ final class VideoPipeline {
         return true
     }
 
+    /// Whether the fps cap lets this frame through. Frames over the cap are skipped before
+    /// decoding; a small allowance for arrival jitter keeps e.g. a 50 cap at 50 on a 60 fps stream.
+    private func passesFpsCap() -> Bool {
+        state.withLock { s in
+            guard s.settings.fpsCap > 0 else { return true }
+            let now = CACurrentMediaTime(), interval = 1 / Double(s.settings.fpsCap)
+            if now + 0.004 < s.nextDue { return false }
+            s.nextDue = max(s.nextDue + interval, now - interval)
+            return true
+        }
+    }
+
     private func decodeAndShow(_ jpeg: Data, captureMicros: UInt64) {
+        guard passesFpsCap() else { return }
         if useSoftwareDecoder {
             decodeInSoftware(jpeg, captureMicros: captureMicros)
             return
@@ -149,33 +177,60 @@ final class VideoPipeline {
 
     /// Shows the frame, through the MetalFX upscaler when it's on and the view is bigger than the frame.
     private func present(_ image: CVPixelBuffer, captureMicros: UInt64) {
-        let state = upscaleState.withLock { $0 }
-        if state.enabled, let upscaler {
+        let current = state.withLock { $0 }
+        let settings = current.settings
+        if settings.upscale, let upscaler {
             let inW = CVPixelBufferGetWidth(image), inH = CVPixelBufferGetHeight(image)
-            let (outW, outH) = Self.fit(width: inW, height: inH, in: state.viewPixels)
-            var status = "window not larger than \(inW)×\(inH)"
+            let (outW, outH) = Self.upscaleSize(settings.target, width: inW, height: inH, view: current.viewPixels)
+            var status = "\(settings.target == .window ? "window" : settings.target.label) not larger than \(inW)×\(inH)"
             if outW > inW, outH > inH {
-                let started = upscaler.upscale(image, width: outW, height: outH) { [weak self] output in
+                let started = upscaler.upscale(image, width: outW, height: outH,
+                                               method: .metalFX(sharpness: Float(settings.sharpness))) { [weak self] output in
                     self?.show(output)
                     self?.stats.frameShown(captureMicros: captureMicros)
                 }
                 if started {
-                    upscaleState.withLock { $0.status = "\(inW)×\(inH) → \(outW)×\(outH)" }
+                    let sharpen = settings.sharpness > 0 ? String(format: ", sharpen %.0f%%", settings.sharpness * 100) : ""
+                    state.withLock { $0.status = "\(inW)×\(inH) → \(outW)×\(outH)\(sharpen)" }
                     return
                 }
                 status = "can't upscale \(inW)×\(inH) to \(outW)×\(outH)"
             }
-            upscaleState.withLock { [status] in $0.status = status }
+            state.withLock { [status] in $0.status = status }
+        } else if settings.filter == .sharp, let upscaler {
+            // Sharp pixels: scale to the window with nearest-neighbour so the display layer shows it 1:1.
+            let inW = CVPixelBufferGetWidth(image), inH = CVPixelBufferGetHeight(image)
+            let (outW, outH) = Self.upscaleSize(.window, width: inW, height: inH, view: current.viewPixels)
+            if outW > inW, outH > inH,
+               upscaler.upscale(image, width: outW, height: outH, method: .nearest, completion: { [weak self] output in
+                   self?.show(output)
+                   self?.stats.frameShown(captureMicros: captureMicros)
+               }) {
+                return
+            }
         }
         show(image)
         stats.frameShown(captureMicros: captureMicros)
     }
 
-    /// The largest size with the frame's aspect ratio that fits the view, in whole even pixels.
-    private static func fit(width: Int, height: Int, in view: (width: Int, height: Int)) -> (Int, Int) {
-        guard width > 0, height > 0, view.width > 0, view.height > 0 else { return (0, 0) }
-        let scale = min(Double(view.width) / Double(width), Double(view.height) / Double(height))
-        return (Int(Double(width) * scale) & ~1, Int(Double(height) * scale) & ~1)
+    /// The upscale output size for a target, keeping the frame's aspect ratio, in whole even
+    /// pixels and at most 8192 on a side. "Window size" is the largest size that fits the view.
+    private static func upscaleSize(_ target: VideoSettings.UpscaleTarget, width: Int, height: Int,
+                                    view: (width: Int, height: Int)) -> (Int, Int) {
+        guard width > 0, height > 0 else { return (0, 0) }
+        let w = Double(width), h = Double(height)
+        var scale: Double
+        switch target {
+        case .window:
+            guard view.width > 0, view.height > 0 else { return (0, 0) }
+            scale = min(Double(view.width) / w, Double(view.height) / h)
+        case .x1_5: scale = 1.5
+        case .x2: scale = 2
+        case .p1440: scale = 1440 / h
+        case .p2160: scale = 2160 / h
+        }
+        scale = min(scale, 8192 / max(w, h))
+        return (Int((w * scale).rounded()) & ~1, Int((h * scale).rounded()) & ~1)
     }
 
     private static func softwareDecode(_ jpeg: Data) -> CVPixelBuffer? {

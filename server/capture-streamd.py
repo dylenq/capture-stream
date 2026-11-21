@@ -285,18 +285,25 @@ class Server:
     async def start_session(self, writer, peer_ip, msg):
         modes = self.config["modes"]
         mode_name = msg.get("mode") or self.config["default_mode"]
-        if mode_name not in modes:
+        if mode_name == "custom":
+            mode = custom_mode(msg)
+            if mode is None:
+                await send(writer, {"type": "error", "modes": list(modes), "message":
+                                    "custom mode needs width/height 160-4096 and fps 1-240"})
+                return
+        elif mode_name in modes:
+            mode = modes[mode_name]
+        else:
             await send(writer, {"type": "error", "message": f"unknown mode {mode_name}", "modes": list(modes)})
             return
         await self.stop_session(replaced_by=writer)
         await self.run_hook("pre_start")
-        streamer = Streamer(self.config, modes[mode_name], peer_ip,
+        streamer = Streamer(self.config, mode, peer_ip,
                             int(msg.get("video_port", 47101)), int(msg.get("audio_port", 47102)))
         await asyncio.to_thread(streamer.start)
         async with self.lock:
             self.session = (writer, streamer)
-        mode = modes[mode_name]
-        log.info("streaming %s to %s", mode_name, peer_ip)
+        log.info("streaming %s %dx%d@%d to %s", mode_name, mode["width"], mode["height"], mode["fps"], peer_ip)
         await send(writer, {"type": "ok", "mode": mode_name, "modes": list(modes), **mode})
 
     async def check_frames(self, writer):
@@ -310,6 +317,18 @@ class Server:
         elif quiet > NO_FRAMES_TIMEOUT:
             await send(writer, {"type": "error", "message":
                                 "no frames from the capture card; check the source or replug the card"})
+
+
+def custom_mode(msg):
+    """A mode the client asked for by size and rate. The card must support MJPEG at it."""
+    try:
+        width, height, fps = int(msg["width"]), int(msg["height"]), int(msg["fps"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not (160 <= width <= 4096 and 160 <= height <= 4096 and 1 <= fps <= 240):
+        return None
+    # MJPEG needs even dimensions for 4:2:0.
+    return {"width": width & ~1, "height": height & ~1, "fps": fps}
 
 
 async def send(writer, obj):

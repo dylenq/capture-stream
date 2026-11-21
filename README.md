@@ -2,7 +2,8 @@
 
 **Stream a PS4, PS5, Nintendo Switch, Xbox or any HDMI source from a USB capture card on a Linux box to
 a native macOS app, with about 12 ms of video delay.** Play from the couch or bed while the console stays
-by the TV. Your controller stays connected to the console; only picture and sound travel to the Mac.
+by the TV. Your controller stays connected to the console as usual, or, on a jailbroken PS4, connects to
+the Mac and is sent to the console over the network ([controller from the Mac](#use-your-controller-from-the-mac-ps4)).
 
 [**⬇ Download the Mac app**](https://github.com/dylenq/capture-stream/releases/latest) ·
 [Website](https://dylenq.github.io/capture-stream/) ·
@@ -35,6 +36,8 @@ Most USB capture cards already send compressed **MJPEG** frames. capture-stream 
 - **Native Mac app** (SwiftUI, Apple Silicon): full screen, remembers your server, no extra software.
 - **Always-on Linux service**: starts at boot as a systemd user service, streams only while the app is
   connected, no root needed.
+- **Controller from the Mac** (optional, jailbroken PS4): plug your controller into the Mac and play;
+  rumble and light bar included.
 - **Demo mode** to try everything without a capture card.
 - Open source, MIT licensed, Python standard library on the server and no dependencies on the Mac.
 
@@ -83,9 +86,11 @@ A wired server and a good 5 GHz connection on the Mac are recommended, especiall
 | `Esc` | leave full screen |
 | `S` | stats overlay |
 | `⌘D` | disconnect |
+| `⌘K` | controller from the Mac on/off |
 
-Command-line options: `--connect <host> [--mode 720p60]` connects on launch, `--show-stats` turns the
-overlay on, and `--log-stats` prints the stats line every second.
+Command-line options: `--connect <host> [--mode 720p60]` connects on launch, `--controller <PS4 IP>`
+turns the controller link on, `--show-stats` turns the overlay on, and `--log-stats` prints the stats line
+every second.
 
 The app listens on UDP ports 47101 (video) and 47102 (audio).
 
@@ -131,6 +136,28 @@ Logs: `journalctl --user -u capture-streamd -f`
 | `pre_start`, `post_stop` | empty | shell commands run before streaming starts / after it stops, e.g. to free the card from another program |
 | `[modes.NAME]` | `720p60`, `1080p30`, `1080p60` | `width`, `height`, `fps` offered to the app |
 
+## Use your controller from the Mac (PS4)
+
+Normally the controller stays paired to the console. If your PS4 runs GoldHEN, the app can instead send
+the controller connected to your Mac to the console, so you only need the Mac where you play.
+
+It works with [Control4Free](https://github.com/MoHadiShibli/Control4Free), a separate GoldHEN payload
+(GPL-3.0) that adds virtual DualShock 4 controllers through the PS4's own virtual-device system, the one
+Remote Play uses. They work on the home screen, at sign-in and in every game. capture-stream talks to it
+over its documented network protocol and includes none of its code.
+
+1. Install Control4Free on the PS4 by following [its installation guide](https://github.com/MoHadiShibli/Control4Free#quick-start),
+   and connect the PS4 to the same network as the Mac.
+2. Connect your controller to the Mac by USB or Bluetooth. DualShock 4 works best; other controllers
+   macOS supports (DualSense, Xbox, …) also work, and the PS4 sees them as a DualShock 4.
+3. In the app, tick **Use controller on PS4** and enter the PS4's IP address.
+4. Choose your user on the PS4's *"Who's using this controller?"* screen.
+
+The controller keeps working while the app isn't the front window, and game rumble and the light-bar
+colour reach your controller. The status line and the stats overlay show its state and round-trip time;
+on a home network it's typically about 5–7 ms. The app connects straight to the PS4 over WebRTC (TCP and
+UDP port 4264), using macOS's built-in WebKit, and doesn't go through the capture-stream server.
+
 ## Try it without a capture card
 
 The server has a demo source that streams a test pattern and a tone. It runs anywhere ffmpeg does,
@@ -164,8 +191,9 @@ straight to the Mac. If you're streaming games running *on* a PC, use Sunshine/M
 
 ### How is this different from PS Remote Play?
 Remote Play streams from the console itself and sends your controller input over the network.
-capture-stream works with any HDMI device, doesn't need an account or the console's cooperation, and
-your controller stays connected to the console directly.
+capture-stream works with any HDMI device and doesn't need an account or the console's cooperation. Your
+controller stays connected to the console directly, unless you use the optional
+[controller from the Mac](#use-your-controller-from-the-mac-ps4) on a jailbroken PS4.
 
 ### Which capture cards work?
 Any UVC (driver-free) USB capture card that outputs MJPEG, which covers most cheap HDMI-to-USB cards.

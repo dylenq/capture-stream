@@ -32,7 +32,7 @@
   "description": "Low-latency streaming from a USB HDMI capture card on Linux to a native macOS app, using MJPEG passthrough and hardware JPEG decoding.",
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "macOS 14+, Linux",
-  "softwareVersion": "0.2.0",
+  "softwareVersion": "0.3.0",
   "license": "https://opensource.org/licenses/MIT",
   "url": "https://dylenq.github.io/capture-stream/",
   "downloadUrl": "https://github.com/dylenq/capture-stream/releases/latest",
@@ -120,7 +120,8 @@
     <p>Game-streaming tools like Sunshine and Moonlight expect a PC running the game. With a capture card they have to
       decode the card's video, show it on a screen, grab that screen and encode it again, adding delay at every step.
       Most USB capture cards already send compressed MJPEG frames, so capture-stream forwards them <strong>unchanged</strong>
-      and decodes them once, on the Mac, with Apple's hardware JPEG decoder. Your controller stays paired to the console.</p>
+      and decodes them once, on the Mac, with Apple's hardware JPEG decoder. Your controller stays paired to the console,
+      or, on a PS4 running GoldHEN, connects to the Mac and is sent to the console over the network.</p>
   </div>
 </section>
 
@@ -134,6 +135,9 @@
       <div class="card"><h3>Sound in sync</h3><p>Raw PCM with a ~20 ms buffer that skips ahead if it ever holds more than 60 ms.</p></div>
       <div class="card"><h3>720p60, 1080p30, 1080p60</h3><p>Pick a mode per session, or define your own in the server config.</p></div>
       <div class="card"><h3>Live stats</h3><p>Press S for fps, bandwidth, dropped frames and video/audio delay.</p></div>
+      <div class="card"><h3>Controller from the Mac</h3><p>On a PS4 running GoldHEN and
+        <a href="https://github.com/MoHadiShibli/Control4Free">Control4Free</a>, plug your controller into the Mac and play,
+        rumble and light bar included.</p></div>
     </div>
   </div>
 </section>

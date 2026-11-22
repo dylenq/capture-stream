@@ -56,10 +56,7 @@ struct ContentView: View {
                     if let warning = client.warning {
                         Banner(text: warning, color: .red)
                     }
-                    // Only the states that need the player's attention mid-stream.
-                    if link.status == .choosingUser {
-                        Banner(text: "Choose your user on the PS4 to use the controller", color: .blue)
-                    } else if case .failed(let message) = link.status {
+                    if case .failed(let message) = link.status {
                         Banner(text: "Controller: \(message)", color: .orange)
                     }
                 }
